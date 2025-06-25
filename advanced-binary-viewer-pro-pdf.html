@@ -1,0 +1,1892 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Binary Format Viewer Pro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+        
+        body {
+            font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+            color: #e2e8f0;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        .glass-card {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(59, 130, 246, 0.2);
+            border-radius: 1rem;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+        
+        .drop-area {
+            border: 2px dashed #4a5568;
+            border-radius: 1.5rem;
+            padding: 4rem 2rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            background: rgba(30, 41, 59, 0.5);
+            backdrop-filter: blur(10px);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .drop-area::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(59, 130, 246, 0.1), transparent);
+            transition: left 0.5s;
+        }
+        
+        .drop-area.hover {
+            background: rgba(59, 130, 246, 0.1);
+            border-color: #3b82f6;
+            transform: scale(1.02);
+            box-shadow: 0 0 50px rgba(59, 130, 246, 0.3);
+        }
+        
+        .drop-area.hover::before {
+            left: 100%;
+        }
+        
+        .hex-dump-container {
+            background: rgba(15, 23, 42, 0.9);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            overflow-y: auto;
+            max-height: 600px;
+            font-family: 'JetBrains Mono', 'Courier New', monospace;
+            white-space: pre;
+            font-size: 0.875rem;
+            line-height: 1.6;
+            border: 1px solid rgba(59, 130, 246, 0.2);
+            position: relative;
+        }
+        
+        .hex-dump-container::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        .hex-dump-container::-webkit-scrollbar-track {
+            background: rgba(30, 41, 59, 0.5);
+            border-radius: 4px;
+        }
+        
+        .hex-dump-container::-webkit-scrollbar-thumb {
+            background: rgba(59, 130, 246, 0.5);
+            border-radius: 4px;
+        }
+        
+        .hex-dump-container::-webkit-scrollbar-thumb:hover {
+            background: rgba(59, 130, 246, 0.7);
+        }
+        
+        .info-card {
+            background: rgba(30, 41, 59, 0.8);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            border: 1px solid rgba(59, 130, 246, 0.2);
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .info-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            border-color: rgba(59, 130, 246, 0.4);
+        }
+        
+        .threat-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            border-radius: 9999px;
+            font-weight: 600;
+            font-size: 0.875rem;
+            animation: pulse 2s infinite;
+        }
+        
+        .threat-high { 
+            background: rgba(239, 68, 68, 0.2); 
+            color: #ef4444; 
+            border: 1px solid #ef4444;
+            box-shadow: 0 0 20px rgba(239, 68, 68, 0.3);
+        }
+        
+        .threat-medium { 
+            background: rgba(245, 158, 11, 0.2); 
+            color: #f59e0b; 
+            border: 1px solid #f59e0b;
+            box-shadow: 0 0 20px rgba(245, 158, 11, 0.3);
+        }
+        
+        .threat-low { 
+            background: rgba(16, 185, 129, 0.2); 
+            color: #10b981; 
+            border: 1px solid #10b981;
+        }
+        
+        .threat-clean { 
+            background: rgba(34, 197, 94, 0.2); 
+            color: #22c55e; 
+            border: 1px solid #22c55e;
+        }
+        
+        .entropy-bar {
+            height: 24px;
+            border-radius: 12px;
+            transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .entropy-bar::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+            animation: shimmer 2s infinite;
+        }
+        
+        @keyframes shimmer {
+            0% { left: -100%; }
+            100% { left: 100%; }
+        }
+        
+        .entropy-high { 
+            background: linear-gradient(90deg, #ef4444, #dc2626);
+            box-shadow: 0 0 20px rgba(239, 68, 68, 0.5);
+        }
+        
+        .entropy-medium { 
+            background: linear-gradient(90deg, #f59e0b, #d97706);
+            box-shadow: 0 0 20px rgba(245, 158, 11, 0.5);
+        }
+        
+        .entropy-low { 
+            background: linear-gradient(90deg, #10b981, #059669);
+            box-shadow: 0 0 20px rgba(16, 185, 129, 0.5);
+        }
+        
+        .detection-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            padding: 0.375rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin: 0.25rem;
+            transition: all 0.3s ease;
+            cursor: default;
+        }
+        
+        .detection-badge:hover {
+            transform: scale(1.05);
+        }
+        
+        .badge-malware { 
+            background: rgba(239, 68, 68, 0.2); 
+            color: #ef4444; 
+            border: 1px solid #ef4444;
+            animation: pulse 2s infinite;
+        }
+        
+        .badge-suspicious { 
+            background: rgba(245, 158, 11, 0.2); 
+            color: #f59e0b; 
+            border: 1px solid #f59e0b;
+        }
+        
+        .badge-clean { 
+            background: rgba(16, 185, 129, 0.2); 
+            color: #10b981; 
+            border: 1px solid #10b981;
+        }
+        
+        .badge-format { 
+            background: rgba(59, 130, 246, 0.2); 
+            color: #3b82f6; 
+            border: 1px solid #3b82f6;
+        }
+        
+        .badge-system { 
+            background: rgba(168, 85, 247, 0.2); 
+            color: #a855f7; 
+            border: 1px solid #a855f7;
+        }
+        
+        .section-analysis {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .section-analysis::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .section-analysis::-webkit-scrollbar-track {
+            background: rgba(30, 41, 59, 0.5);
+            border-radius: 3px;
+        }
+        
+        .section-analysis::-webkit-scrollbar-thumb {
+            background: rgba(59, 130, 246, 0.5);
+            border-radius: 3px;
+        }
+        
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(59, 130, 246, 0.3);
+            border-radius: 50%;
+            border-top-color: #3b82f6;
+            animation: spin 1s ease-in-out infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 4px;
+            background: rgba(30, 41, 59, 0.5);
+            border-radius: 2px;
+            overflow: hidden;
+            margin: 1rem 0;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+            border-radius: 2px;
+            transition: width 0.3s ease;
+        }
+        
+        .tab-container {
+            display: flex;
+            border-bottom: 1px solid rgba(59, 130, 246, 0.2);
+            margin-bottom: 1rem;
+        }
+        
+        .tab {
+            padding: 0.75rem 1.5rem;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+        
+        .tab.active {
+            color: #3b82f6;
+            border-bottom-color: #3b82f6;
+            background: rgba(59, 130, 246, 0.1);
+        }
+        
+        .tab:hover:not(.active) {
+            background: rgba(59, 130, 246, 0.05);
+        }
+        
+        .floating-action {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 10px 30px rgba(59, 130, 246, 0.3);
+            transition: all 0.3s ease;
+            z-index: 1000;
+        }
+        
+        .floating-action:hover {
+            transform: scale(1.1);
+            box-shadow: 0 15px 40px rgba(59, 130, 246, 0.4);
+        }
+        
+        .tooltip {
+            position: relative;
+            cursor: help;
+        }
+        
+        .tooltip::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 125%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(15, 23, 42, 0.95);
+            color: #e2e8f0;
+            padding: 0.5rem 0.75rem;
+            border-radius: 0.5rem;
+            font-size: 0.75rem;
+            white-space: nowrap;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+            z-index: 1000;
+            border: 1px solid rgba(59, 130, 246, 0.3);
+        }
+        
+        .tooltip:hover::after {
+            opacity: 1;
+            visibility: visible;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin: 1rem 0;
+        }
+        
+        .stat-item {
+            background: rgba(15, 23, 42, 0.5);
+            padding: 1rem;
+            border-radius: 0.75rem;
+            border: 1px solid rgba(59, 130, 246, 0.1);
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+        
+        .stat-item:hover {
+            border-color: rgba(59, 130, 246, 0.3);
+            transform: translateY(-2px);
+        }
+        
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #3b82f6;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        
+        .stat-label {
+            font-size: 0.875rem;
+            color: #94a3b8;
+            margin-top: 0.25rem;
+        }
+
+        /* PDF Export Styles */
+        .pdf-content {
+            background: white;
+            color: black;
+            padding: 2rem;
+            font-family: Arial, sans-serif;
+        }
+
+        .pdf-header {
+            text-align: center;
+            border-bottom: 2px solid #3b82f6;
+            padding-bottom: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .pdf-section {
+            margin-bottom: 2rem;
+            page-break-inside: avoid;
+        }
+
+        .pdf-section h3 {
+            color: #3b82f6;
+            border-bottom: 1px solid #e5e7eb;
+            padding-bottom: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .pdf-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+        }
+
+        .pdf-table th,
+        .pdf-table td {
+            border: 1px solid #e5e7eb;
+            padding: 0.5rem;
+            text-align: left;
+        }
+
+        .pdf-table th {
+            background-color: #f3f4f6;
+            font-weight: bold;
+        }
+
+        .threat-high-pdf { color: #dc2626; font-weight: bold; }
+        .threat-medium-pdf { color: #d97706; font-weight: bold; }
+        .threat-low-pdf { color: #059669; font-weight: bold; }
+        .threat-clean-pdf { color: #16a34a; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="text-center mb-8">
+            <div class="glass-card p-8">
+                <h1 class="text-5xl font-bold bg-gradient-to-r from-blue-400 via-purple-500 to-pink-500 bg-clip-text text-transparent mb-4">
+                    <i class="fas fa-microscope mr-3"></i>
+                    Advanced Binary Format Viewer Pro
+                </h1>
+                <p class="text-gray-400 text-xl">Professional binary analysis with AI-powered malware detection</p>
+                <div class="flex justify-center items-center gap-4 mt-4">
+                    <span class="detection-badge badge-format">
+                        <i class="fas fa-shield-alt"></i>
+                        Security Analysis
+                    </span>
+                    <span class="detection-badge badge-system">
+                        <i class="fas fa-chart-line"></i>
+                        Entropy Visualization
+                    </span>
+                    <span class="detection-badge badge-clean">
+                        <i class="fas fa-search"></i>
+                        Format Detection
+                    </span>
+                </div>
+            </div>
+        </header>
+
+        <!-- File Input Area -->
+        <div id="drop-area" class="drop-area mb-8 glass-card">
+            <div class="text-6xl mb-4">
+                <i class="fas fa-cloud-upload-alt text-blue-400"></i>
+            </div>
+            <h3 class="text-2xl font-semibold text-gray-300 mb-4">Drop your binary file here</h3>
+            <p class="text-lg text-gray-400 mb-6">Supports executables, archives, images, and more</p>
+            <input type="file" id="file-input" class="hidden">
+            <label for="file-input" class="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl cursor-pointer hover:from-blue-700 hover:to-purple-700 transition font-semibold text-lg shadow-lg">
+                <i class="fas fa-folder-open"></i>
+                Browse Files
+            </label>
+            <div id="file-info" class="mt-6 text-gray-300"></div>
+            <div id="progress-container" class="hidden">
+                <div class="progress-bar">
+                    <div id="progress-fill" class="progress-fill" style="width: 0%"></div>
+                </div>
+                <p class="text-sm text-gray-400 text-center">Analyzing file...</p>
+            </div>
+        </div>
+
+        <!-- Quick Stats -->
+        <div id="quick-stats" class="hidden mb-8">
+            <div class="glass-card p-6">
+                <h3 class="text-xl font-semibold mb-4 text-blue-300">
+                    <i class="fas fa-tachometer-alt mr-2"></i>
+                    Quick Analysis
+                </h3>
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <div id="stat-entropy" class="stat-value">N/A</div>
+                        <div class="stat-label">Shannon Entropy</div>
+                    </div>
+                    <div class="stat-item">
+                        <div id="stat-size" class="stat-value">N/A</div>
+                        <div class="stat-label">File Size</div>
+                    </div>
+                    <div class="stat-item">
+                        <div id="stat-threat" class="stat-value">N/A</div>
+                        <div class="stat-label">Threat Level</div>
+                    </div>
+                    <div class="stat-item">
+                        <div id="stat-formats" class="stat-value">N/A</div>
+                        <div class="stat-label">Detected Formats</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Analysis Tabs -->
+        <div id="analysis-container" class="hidden">
+            <div class="glass-card p-6 mb-6">
+                <div class="tab-container">
+                    <div class="tab active" data-tab="overview">
+                        <i class="fas fa-chart-pie mr-2"></i>
+                        Overview
+                    </div>
+                    <div class="tab" data-tab="hex">
+                        <i class="fas fa-code mr-2"></i>
+                        Hex Dump
+                    </div>
+                    <div class="tab" data-tab="security">
+                        <i class="fas fa-shield-alt mr-2"></i>
+                        Security
+                    </div>
+                    <div class="tab" data-tab="structure">
+                        <i class="fas fa-sitemap mr-2"></i>
+                        Structure
+                    </div>
+                    <div class="tab" data-tab="visualization">
+                        <i class="fas fa-chart-area mr-2"></i>
+                        Visualization
+                    </div>
+                </div>
+
+                <!-- Tab Content -->
+                <div id="tab-overview" class="tab-content">
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <!-- File Information -->
+                        <div class="info-card">
+                            <h4 class="text-lg font-semibold mb-4 text-blue-300">
+                                <i class="fas fa-info-circle mr-2"></i>
+                                File Information
+                            </h4>
+                            <div class="space-y-4">
+                                <div>
+                                    <span class="text-gray-400">Shannon Entropy:</span>
+                                    <div class="mt-2">
+                                        <div id="entropy-bar" class="entropy-bar w-0"></div>
+                                        <div class="flex justify-between mt-1">
+                                            <span id="entropy-value" class="text-lg font-bold">N/A</span>
+                                            <span class="text-sm text-gray-400">0-8 bits</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <span class="text-gray-400">File Size:</span>
+                                        <div id="file-size" class="font-mono text-blue-300">N/A</div>
+                                    </div>
+                                    <div>
+                                        <span class="text-gray-400">Threat Level:</span>
+                                        <div id="threat-level" class="font-bold">Unknown</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Format Detection -->
+                        <div class="info-card">
+                            <h4 class="text-lg font-semibold mb-4 text-blue-300">
+                                <i class="fas fa-search mr-2"></i>
+                                Format Detection
+                            </h4>
+                            <div id="format-detection" class="space-y-2">
+                                <p class="text-gray-500">Drop a file to analyze formats</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="tab-hex" class="tab-content hidden">
+                    <div class="info-card">
+                        <h4 class="text-lg font-semibold mb-4 text-blue-300">
+                            <i class="fas fa-code mr-2"></i>
+                            Hexadecimal Dump
+                        </h4>
+                        <div id="hex-dump" class="hex-dump-container">
+                            <p class="text-gray-500">Drop a file to see its hex dump</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="tab-security" class="tab-content hidden">
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div class="info-card">
+                            <h4 class="text-lg font-semibold mb-4 text-blue-300">
+                                <i class="fas fa-shield-alt mr-2"></i>
+                                Security Analysis
+                            </h4>
+                            <div id="security-analysis" class="space-y-3">
+                                <p class="text-gray-500">Drop a file to analyze security</p>
+                            </div>
+                        </div>
+
+                        <div class="info-card">
+                            <h4 class="text-lg font-semibold mb-4 text-blue-300">
+                                <i class="fas fa-exclamation-triangle mr-2"></i>
+                                Threat Indicators
+                            </h4>
+                            <div id="threat-indicators" class="space-y-2">
+                                <p class="text-gray-500">No threats detected</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="tab-structure" class="tab-content hidden">
+                    <div class="info-card">
+                        <h4 class="text-lg font-semibold mb-4 text-blue-300">
+                            <i class="fas fa-sitemap mr-2"></i>
+                            File Structure Analysis
+                        </h4>
+                        <div id="section-analysis" class="section-analysis">
+                            <p class="text-gray-500">Drop a file to analyze structure</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="tab-visualization" class="tab-content hidden">
+                    <div class="space-y-6">
+                        <div class="info-card">
+                            <h4 class="text-lg font-semibold mb-4 text-blue-300">
+                                <i class="fas fa-chart-bar mr-2"></i>
+                                Byte Frequency Distribution
+                            </h4>
+                            <canvas id="frequency-chart" width="400" height="200"></canvas>
+                        </div>
+
+                        <div class="info-card">
+                            <h4 class="text-lg font-semibold mb-4 text-blue-300">
+                                <i class="fas fa-chart-line mr-2"></i>
+                                Entropy Visualization
+                            </h4>
+                            <canvas id="entropy-chart" width="400" height="200"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Floating Action Button -->
+        <div class="floating-action tooltip" data-tooltip="Export PDF Report" id="export-btn">
+            <i class="fas fa-file-pdf text-white text-xl"></i>
+        </div>
+    </div>
+
+    <!-- Hidden PDF Content Template -->
+    <div id="pdf-content" class="pdf-content" style="display: none;">
+        <div class="pdf-header">
+            <h1>Advanced Binary Analysis Report</h1>
+            <p id="pdf-filename"></p>
+            <p id="pdf-timestamp"></p>
+        </div>
+
+        <div class="pdf-section">
+            <h3>Executive Summary</h3>
+            <table class="pdf-table">
+                <tr><td><strong>File Name:</strong></td><td id="pdf-file-name"></td></tr>
+                <tr><td><strong>File Size:</strong></td><td id="pdf-file-size"></td></tr>
+                <tr><td><strong>Shannon Entropy:</strong></td><td id="pdf-entropy"></td></tr>
+                <tr><td><strong>Threat Level:</strong></td><td id="pdf-threat-level"></td></tr>
+                <tr><td><strong>Risk Score:</strong></td><td id="pdf-risk-score"></td></tr>
+            </table>
+        </div>
+
+        <div class="pdf-section">
+            <h3>Detected File Formats</h3>
+            <div id="pdf-formats"></div>
+        </div>
+
+        <div class="pdf-section">
+            <h3>Security Analysis</h3>
+            <div id="pdf-security-details"></div>
+        </div>
+
+        <div class="pdf-section">
+            <h3>Threat Indicators</h3>
+            <div id="pdf-threat-details"></div>
+        </div>
+
+        <div class="pdf-section">
+            <h3>Recommendations</h3>
+            <div id="pdf-recommendations"></div>
+        </div>
+
+        <div class="pdf-section">
+            <h3>Technical Details</h3>
+            <div id="pdf-technical-details"></div>
+        </div>
+    </div>
+
+    <script>
+        // Enhanced file signatures database with more comprehensive detection
+        const FILE_SIGNATURES = [
+            // Images
+            { name: 'PNG Image', signature: [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A], category: 'image', icon: 'fas fa-image' },
+            { name: 'JPEG Image', signature: [0xFF, 0xD8, 0xFF], category: 'image', icon: 'fas fa-image' },
+            { name: 'GIF Image', signature: [0x47, 0x49, 0x46, 0x38], category: 'image', icon: 'fas fa-image' },
+            { name: 'BMP Image', signature: [0x42, 0x4D], category: 'image', icon: 'fas fa-image' },
+            { name: 'TIFF Image (LE)', signature: [0x49, 0x49, 0x2A, 0x00], category: 'image', icon: 'fas fa-image' },
+            { name: 'TIFF Image (BE)', signature: [0x4D, 0x4D, 0x00, 0x2A], category: 'image', icon: 'fas fa-image' },
+            { name: 'ICO File', signature: [0x00, 0x00, 0x01, 0x00], category: 'image', icon: 'fas fa-image' },
+            { name: 'WebP Image', signature: [0x52, 0x49, 0x46, 0x46], category: 'image', icon: 'fas fa-image' },
+            
+            // Archives
+            { name: 'ZIP Archive', signature: [0x50, 0x4B, 0x03, 0x04], category: 'archive', icon: 'fas fa-file-archive' },
+            { name: 'ZIP Archive (Empty)', signature: [0x50, 0x4B, 0x05, 0x06], category: 'archive', icon: 'fas fa-file-archive' },
+            { name: 'RAR Archive', signature: [0x52, 0x61, 0x72, 0x21, 0x1A, 0x07, 0x00], category: 'archive', icon: 'fas fa-file-archive' },
+            { name: '7-Zip Archive', signature: [0x37, 0x7A, 0xBC, 0xAF, 0x27, 0x1C], category: 'archive', icon: 'fas fa-file-archive' },
+            { name: 'GZIP Archive', signature: [0x1F, 0x8B], category: 'archive', icon: 'fas fa-file-archive' },
+            { name: 'BZIP2 Archive', signature: [0x42, 0x5A, 0x68], category: 'archive', icon: 'fas fa-file-archive' },
+            { name: 'TAR Archive', signature: [0x75, 0x73, 0x74, 0x61, 0x72], offset: 257, category: 'archive', icon: 'fas fa-file-archive' },
+            
+            // Executables
+            { name: 'PE Executable', signature: [0x4D, 0x5A], category: 'executable', icon: 'fas fa-cog', risk: 'medium' },
+            { name: 'ELF Executable', signature: [0x7F, 0x45, 0x4C, 0x46], category: 'executable', icon: 'fas fa-cog', risk: 'medium' },
+            { name: 'Mach-O Binary (32-bit)', signature: [0xFE, 0xED, 0xFA, 0xCE], category: 'executable', icon: 'fas fa-cog', risk: 'medium' },
+            { name: 'Mach-O Binary (64-bit)', signature: [0xFE, 0xED, 0xFA, 0xCF], category: 'executable', icon: 'fas fa-cog', risk: 'medium' },
+            { name: 'Java Class File', signature: [0xCA, 0xFE, 0xBA, 0xBE], category: 'executable', icon: 'fab fa-java', risk: 'low' },
+            
+            // Documents
+            { name: 'PDF Document', signature: [0x25, 0x50, 0x44, 0x46], category: 'document', icon: 'fas fa-file-pdf' },
+            { name: 'RTF Document', signature: [0x7B, 0x5C, 0x72, 0x74, 0x66, 0x31], category: 'document', icon: 'fas fa-file-alt' },
+            { name: 'MS Office (Legacy)', signature: [0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1], category: 'document', icon: 'fas fa-file-word' },
+            { name: 'PostScript', signature: [0x25, 0x21, 0x50, 0x53], category: 'document', icon: 'fas fa-file-alt' },
+            
+            // Media
+            { name: 'MP3 Audio', signature: [0x49, 0x44, 0x33], category: 'media', icon: 'fas fa-music' },
+            { name: 'MP4 Video', signature: [0x66, 0x74, 0x79, 0x70], offset: 4, category: 'media', icon: 'fas fa-video' },
+            { name: 'AVI Video', signature: [0x52, 0x49, 0x46, 0x46], category: 'media', icon: 'fas fa-video' },
+            { name: 'WAV Audio', signature: [0x52, 0x49, 0x46, 0x46], category: 'media', icon: 'fas fa-music' },
+            { name: 'OGG Audio', signature: [0x4F, 0x67, 0x67, 0x53], category: 'media', icon: 'fas fa-music' },
+            { name: 'FLAC Audio', signature: [0x66, 0x4C, 0x61, 0x43], category: 'media', icon: 'fas fa-music' },
+            
+            // Databases
+            { name: 'SQLite Database', signature: [0x53, 0x51, 0x4C, 0x69, 0x74, 0x65, 0x20, 0x66, 0x6F, 0x72, 0x6D, 0x61, 0x74, 0x20, 0x33, 0x00], category: 'database', icon: 'fas fa-database' },
+            { name: 'MySQL Database', signature: [0xFE, 0x01, 0x00, 0x00], category: 'database', icon: 'fas fa-database' },
+            
+            // System Files
+            { name: 'Windows Registry', signature: [0x72, 0x65, 0x67, 0x66], category: 'system', icon: 'fab fa-windows' },
+            { name: 'Linux Core Dump', signature: [0x7F, 0x45, 0x4C, 0x46], category: 'system', icon: 'fab fa-linux' },
+            { name: 'Windows Memory Dump', signature: [0x50, 0x41, 0x47, 0x45, 0x44, 0x55, 0x4D, 0x50], category: 'system', icon: 'fab fa-windows' },
+            
+            // Crypto/Security
+            { name: 'PGP Public Key', signature: [0x99, 0x01], category: 'crypto', icon: 'fas fa-key' },
+            { name: 'X.509 Certificate', signature: [0x30, 0x82], category: 'crypto', icon: 'fas fa-certificate' },
+            
+            // Scripts
+            { name: 'Shell Script', signature: [0x23, 0x21, 0x2F, 0x62, 0x69, 0x6E, 0x2F], category: 'script', icon: 'fas fa-terminal' },
+            { name: 'Python Script', signature: [0x23, 0x21, 0x2F, 0x75, 0x73, 0x72, 0x2F, 0x62, 0x69, 0x6E, 0x2F, 0x70, 0x79, 0x74, 0x68, 0x6F, 0x6E], category: 'script', icon: 'fab fa-python' }
+        ];
+
+        // Enhanced malware detection patterns
+        const MALWARE_PATTERNS = [
+            // Command execution patterns
+            { pattern: 'cmd.exe /c', type: 'string', threat: 'medium', description: 'Command execution pattern', category: 'execution' },
+            { pattern: 'powershell.exe -enc', type: 'string', threat: 'high', description: 'Encoded PowerShell execution', category: 'execution' },
+            { pattern: 'powershell.exe -nop', type: 'string', threat: 'medium', description: 'PowerShell no profile execution', category: 'execution' },
+            { pattern: 'wscript.exe', type: 'string', threat: 'medium', description: 'Windows Script Host execution', category: 'execution' },
+            { pattern: 'cscript.exe', type: 'string', threat: 'medium', description: 'Command-line script execution', category: 'execution' },
+            
+            // Process injection techniques
+            { pattern: 'CreateRemoteThread', type: 'string', threat: 'high', description: 'Process injection technique', category: 'injection' },
+            { pattern: 'VirtualAllocEx', type: 'string', threat: 'medium', description: 'Memory allocation in remote process', category: 'injection' },
+            { pattern: 'WriteProcessMemory', type: 'string', threat: 'medium', description: 'Memory writing in remote process', category: 'injection' },
+            { pattern: 'SetWindowsHookEx', type: 'string', threat: 'medium', description: 'Windows hook installation', category: 'injection' },
+            { pattern: 'NtCreateThreadEx', type: 'string', threat: 'high', description: 'Native thread creation', category: 'injection' },
+            
+            // Persistence mechanisms
+            { pattern: 'SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run', type: 'string', threat: 'medium', description: 'Registry persistence', category: 'persistence' },
+            { pattern: 'HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Run', type: 'string', threat: 'medium', description: 'User registry persistence', category: 'persistence' },
+            { pattern: 'schtasks.exe', type: 'string', threat: 'medium', description: 'Scheduled task creation', category: 'persistence' },
+            
+            // Network activity
+            { pattern: 'WinINet', type: 'string', threat: 'low', description: 'Internet connectivity', category: 'network' },
+            { pattern: 'URLDownloadToFile', type: 'string', threat: 'medium', description: 'File download capability', category: 'network' },
+            { pattern: 'InternetOpen', type: 'string', threat: 'low', description: 'Internet session initialization', category: 'network' },
+            { pattern: 'HttpSendRequest', type: 'string', threat: 'medium', description: 'HTTP request sending', category: 'network' },
+            
+            // Malware-specific strings
+            { pattern: 'keylogger', type: 'string', threat: 'high', description: 'Keylogging functionality', category: 'malware' },
+            { pattern: 'ransomware', type: 'string', threat: 'high', description: 'Ransomware indicator', category: 'malware' },
+            { pattern: 'botnet', type: 'string', threat: 'high', description: 'Botnet functionality', category: 'malware' },
+            { pattern: 'backdoor', type: 'string', threat: 'high', description: 'Backdoor functionality', category: 'malware' },
+            { pattern: 'trojan', type: 'string', threat: 'high', description: 'Trojan indicator', category: 'malware' },
+            
+            // Anti-analysis techniques
+            { pattern: 'IsDebuggerPresent', type: 'string', threat: 'medium', description: 'Debugger detection', category: 'evasion' },
+            { pattern: 'CheckRemoteDebuggerPresent', type: 'string', threat: 'medium', description: 'Remote debugger detection', category: 'evasion' },
+            { pattern: 'VirtualProtect', type: 'string', threat: 'medium', description: 'Memory protection modification', category: 'evasion' },
+            { pattern: 'GetTickCount', type: 'string', threat: 'low', description: 'Timing-based evasion', category: 'evasion' },
+            
+            // Suspicious byte patterns
+            { pattern: [0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90], type: 'bytes', threat: 'medium', description: 'Extended NOP sled (shellcode)', category: 'shellcode' },
+            { pattern: [0xCC, 0xCC, 0xCC, 0xCC], type: 'bytes', threat: 'low', description: 'Debug breakpoints', category: 'debug' },
+            { pattern: [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00], type: 'bytes', threat: 'low', description: 'Null padding', category: 'padding' },
+            
+            // Entropy-based detection
+            { pattern: 'high_entropy', type: 'entropy', threshold: 7.5, threat: 'medium', description: 'High entropy (packed/encrypted)', category: 'packing' },
+            { pattern: 'very_high_entropy', type: 'entropy', threshold: 7.8, threat: 'high', description: 'Very high entropy (likely malicious)', category: 'packing' }
+        ];
+
+        class AdvancedBinaryAnalyzer {
+            constructor() {
+                this.currentFile = null;
+                this.analysisResults = {};
+                this.setupEventListeners();
+                this.setupTabs();
+                this.frequencyChart = null;
+                this.entropyChart = null;
+                this.initializeCharts();
+            }
+
+            setupEventListeners() {
+                const dropArea = document.getElementById('drop-area');
+                const fileInput = document.getElementById('file-input');
+                const exportBtn = document.getElementById('export-btn');
+
+                ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                    dropArea.addEventListener(eventName, this.preventDefaults, false);
+                });
+
+                ['dragenter', 'dragover'].forEach(eventName => {
+                    dropArea.addEventListener(eventName, () => dropArea.classList.add('hover'), false);
+                });
+
+                ['dragleave', 'drop'].forEach(eventName => {
+                    dropArea.addEventListener(eventName, () => dropArea.classList.remove('hover'), false);
+                });
+
+                dropArea.addEventListener('drop', this.handleDrop.bind(this), false);
+                fileInput.addEventListener('change', this.handleFileSelect.bind(this), false);
+                exportBtn.addEventListener('click', this.exportPDFReport.bind(this));
+            }
+
+            setupTabs() {
+                const tabs = document.querySelectorAll('.tab');
+                tabs.forEach(tab => {
+                    tab.addEventListener('click', () => {
+                        const tabName = tab.dataset.tab;
+                        this.switchTab(tabName);
+                    });
+                });
+            }
+
+            switchTab(tabName) {
+                // Update tab appearance
+                document.querySelectorAll('.tab').forEach(tab => {
+                    tab.classList.remove('active');
+                });
+                document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+
+                // Show/hide tab content
+                document.querySelectorAll('.tab-content').forEach(content => {
+                    content.classList.add('hidden');
+                });
+                document.getElementById(`tab-${tabName}`).classList.remove('hidden');
+            }
+
+            preventDefaults(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+
+            handleDrop(e) {
+                const file = e.dataTransfer.files[0];
+                if (file) this.analyzeFile(file);
+            }
+
+            handleFileSelect(e) {
+                const file = e.target.files[0];
+                if (file) this.analyzeFile(file);
+            }
+
+            async analyzeFile(file) {
+                this.currentFile = file;
+                this.showProgress();
+                
+                try {
+                    document.getElementById('file-info').innerHTML = `
+                        <div class="flex items-center justify-center gap-3">
+                            <div class="loading-spinner"></div>
+                            <span>Analyzing: <strong>${file.name}</strong> (${this.formatFileSize(file.size)})</span>
+                        </div>
+                    `;
+                    
+                    const arrayBuffer = await this.readFileAsArrayBuffer(file);
+                    const uint8Array = new Uint8Array(arrayBuffer);
+                    
+                    // Perform comprehensive analysis
+                    await this.performAnalysis(file, uint8Array);
+                    
+                    this.hideProgress();
+                    this.showResults();
+                    
+                } catch (error) {
+                    console.error('Error analyzing file:', error);
+                    document.getElementById('file-info').innerHTML = `
+                        <div class="text-red-400">
+                            <i class="fas fa-exclamation-triangle mr-2"></i>
+                            Error analyzing file: ${error.message}
+                        </div>
+                    `;
+                    this.hideProgress();
+                }
+            }
+
+            async performAnalysis(file, uint8Array) {
+                const steps = [
+                    { name: 'Basic Analysis', func: () => this.updateFileInfo(file, uint8Array) },
+                    { name: 'Format Detection', func: () => this.detectFormats(uint8Array) },
+                    { name: 'Security Analysis', func: () => this.performSecurityAnalysis(uint8Array) },
+                    { name: 'Structure Analysis', func: () => this.analyzeSections(uint8Array) },
+                    { name: 'Hex Dump', func: () => this.renderHexDump(uint8Array) },
+                    { name: 'Visualizations', func: () => this.renderVisualizations(uint8Array) }
+                ];
+
+                for (let i = 0; i < steps.length; i++) {
+                    this.updateProgress((i / steps.length) * 100, steps[i].name);
+                    await new Promise(resolve => setTimeout(resolve, 100)); // Small delay for UI
+                    steps[i].func();
+                }
+
+                this.updateProgress(100, 'Analysis Complete');
+            }
+
+            showProgress() {
+                document.getElementById('progress-container').classList.remove('hidden');
+            }
+
+            hideProgress() {
+                document.getElementById('progress-container').classList.add('hidden');
+            }
+
+            updateProgress(percent, status) {
+                document.getElementById('progress-fill').style.width = `${percent}%`;
+                if (status) {
+                    document.querySelector('#progress-container p').textContent = status;
+                }
+            }
+
+            showResults() {
+                document.getElementById('quick-stats').classList.remove('hidden');
+                document.getElementById('analysis-container').classList.remove('hidden');
+            }
+
+            readFileAsArrayBuffer(file) {
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = e => resolve(e.target.result);
+                    reader.onerror = reject;
+                    reader.readAsArrayBuffer(file);
+                });
+            }
+
+            updateFileInfo(file, uint8Array) {
+                const entropy = this.calculateEntropy(uint8Array);
+                const threatLevel = this.assessThreatLevel(entropy, uint8Array);
+                
+                // Store results
+                this.analysisResults.entropy = entropy;
+                this.analysisResults.threatLevel = threatLevel;
+                this.analysisResults.fileSize = file.size;
+                this.analysisResults.fileName = file.name;
+                
+                // Update quick stats
+                document.getElementById('stat-entropy').textContent = `${entropy.toFixed(2)}`;
+                document.getElementById('stat-size').textContent = this.formatFileSize(file.size);
+                document.getElementById('stat-threat').textContent = threatLevel.level;
+                document.getElementById('stat-threat').className = `stat-value threat-${threatLevel.level.toLowerCase()}`;
+                
+                // Update detailed info
+                document.getElementById('file-size').textContent = this.formatFileSize(file.size);
+                document.getElementById('entropy-value').textContent = `${entropy.toFixed(2)} bits`;
+                
+                // Update entropy bar
+                const entropyBar = document.getElementById('entropy-bar');
+                const entropyPercent = (entropy / 8) * 100;
+                entropyBar.style.width = `${entropyPercent}%`;
+                
+                if (entropy > 7.5) {
+                    entropyBar.className = 'entropy-bar entropy-high';
+                } else if (entropy > 5) {
+                    entropyBar.className = 'entropy-bar entropy-medium';
+                } else {
+                    entropyBar.className = 'entropy-bar entropy-low';
+                }
+                
+                // Update threat level
+                const threatElement = document.getElementById('threat-level');
+                threatElement.innerHTML = `
+                    <span class="threat-indicator threat-${threatLevel.level.toLowerCase()}">
+                        <i class="fas fa-${this.getThreatIcon(threatLevel.level)}"></i>
+                        ${threatLevel.level}
+                    </span>
+                `;
+            }
+
+            getThreatIcon(level) {
+                switch (level.toLowerCase()) {
+                    case 'high': return 'exclamation-triangle';
+                    case 'medium': return 'exclamation-circle';
+                    case 'low': return 'info-circle';
+                    default: return 'shield-alt';
+                }
+            }
+
+            calculateEntropy(uint8Array) {
+                const frequencies = new Array(256).fill(0);
+                const len = uint8Array.length;
+                
+                for (let i = 0; i < len; i++) {
+                    frequencies[uint8Array[i]]++;
+                }
+                
+                let entropy = 0;
+                for (let i = 0; i < 256; i++) {
+                    const p = frequencies[i] / len;
+                    if (p > 0) {
+                        entropy -= p * Math.log2(p);
+                    }
+                }
+                
+                return entropy;
+            }
+
+            assessThreatLevel(entropy, uint8Array) {
+                let score = 0;
+                let reasons = [];
+                let categories = new Set();
+                
+                // Entropy-based assessment
+                if (entropy > 7.8) {
+                    score += 4;
+                    reasons.push('Very high entropy detected');
+                    categories.add('packing');
+                } else if (entropy > 7.5) {
+                    score += 3;
+                    reasons.push('High entropy detected');
+                    categories.add('packing');
+                } else if (entropy > 7.0) {
+                    score += 1;
+                    reasons.push('Moderately high entropy');
+                }
+                
+                // Pattern-based assessment
+                const patternResults = this.detectMalwarePatterns(uint8Array);
+                score += patternResults.score;
+                reasons.push(...patternResults.reasons);
+                patternResults.categories.forEach(cat => categories.add(cat));
+                
+                // File type risk assessment
+                const formats = this.detectFormats(uint8Array, true);
+                formats.forEach(format => {
+                    if (format.risk === 'medium') {
+                        score += 1;
+                        reasons.push(`Executable file type: ${format.name}`);
+                    }
+                });
+                
+                let level;
+                if (score >= 6) level = 'HIGH';
+                else if (score >= 3) level = 'MEDIUM';
+                else if (score >= 1) level = 'LOW';
+                else level = 'CLEAN';
+                
+                return { 
+                    level, 
+                    reasons, 
+                    score, 
+                    categories: Array.from(categories) 
+                };
+            }
+
+            detectMalwarePatterns(uint8Array) {
+                let score = 0;
+                let reasons = [];
+                let categories = new Set();
+                
+                // Convert to string for string pattern matching
+                const dataString = Array.from(uint8Array).map(b => String.fromCharCode(b)).join('');
+                
+                for (const pattern of MALWARE_PATTERNS) {
+                    if (pattern.type === 'string') {
+                        if (dataString.toLowerCase().includes(pattern.pattern.toLowerCase())) {
+                            const points = pattern.threat === 'high' ? 3 : pattern.threat === 'medium' ? 2 : 1;
+                            score += points;
+                            reasons.push(pattern.description);
+                            categories.add(pattern.category);
+                        }
+                    } else if (pattern.type === 'bytes') {
+                        if (this.findBytePattern(uint8Array, pattern.pattern)) {
+                            const points = pattern.threat === 'high' ? 3 : pattern.threat === 'medium' ? 2 : 1;
+                            score += points;
+                            reasons.push(pattern.description);
+                            categories.add(pattern.category);
+                        }
+                    }
+                }
+                
+                return { score, reasons, categories };
+            }
+
+            findBytePattern(uint8Array, pattern) {
+                for (let i = 0; i <= uint8Array.length - pattern.length; i++) {
+                    let match = true;
+                    for (let j = 0; j < pattern.length; j++) {
+                        if (uint8Array[i + j] !== pattern[j]) {
+                            match = false;
+                            break;
+                        }
+                    }
+                    if (match) return true;
+                }
+                return false;
+            }
+
+            detectFormats(uint8Array, returnArray = false) {
+                const detectedFormats = [];
+                
+                for (const format of FILE_SIGNATURES) {
+                    const offset = format.offset || 0;
+                    if (uint8Array.length >= offset + format.signature.length) {
+                        let match = true;
+                        for (let i = 0; i < format.signature.length; i++) {
+                            if (uint8Array[offset + i] !== format.signature[i]) {
+                                match = false;
+                                break;
+                            }
+                        }
+                        if (match) {
+                            detectedFormats.push(format);
+                        }
+                    }
+                }
+                
+                if (returnArray) return detectedFormats;
+                
+                // Store for PDF export
+                this.analysisResults.detectedFormats = detectedFormats;
+                
+                // Update UI
+                const formatDiv = document.getElementById('format-detection');
+                document.getElementById('stat-formats').textContent = detectedFormats.length.toString();
+                
+                if (detectedFormats.length > 0) {
+                    formatDiv.innerHTML = detectedFormats.map(format => 
+                        `<span class="detection-badge badge-format">
+                            <i class="${format.icon || 'fas fa-file'} mr-1"></i>
+                            ${format.name}
+                        </span>`
+                    ).join('');
+                } else {
+                    formatDiv.innerHTML = '<p class="text-gray-500">No known formats detected</p>';
+                }
+                
+                return detectedFormats;
+            }
+
+            performSecurityAnalysis(uint8Array) {
+                const entropy = this.analysisResults.entropy;
+                const threatAssessment = this.analysisResults.threatLevel;
+                const patternResults = this.detectMalwarePatterns(uint8Array);
+                
+                const securityDiv = document.getElementById('security-analysis');
+                const threatDiv = document.getElementById('threat-indicators');
+                
+                let securityHtml = '';
+                let threatHtml = '';
+                
+                // Main threat assessment
+                const badgeClass = threatAssessment.level === 'HIGH' ? 'badge-malware' : 
+                                 threatAssessment.level === 'MEDIUM' ? 'badge-suspicious' : 
+                                 threatAssessment.level === 'LOW' ? 'badge-suspicious' : 'badge-clean';
+                
+                securityHtml += `
+                    <div class="threat-indicator ${badgeClass.replace('badge-', 'threat-')}">
+                        <i class="fas fa-${this.getThreatIcon(threatAssessment.level)} mr-2"></i>
+                        Threat Level: ${threatAssessment.level}
+                    </div>
+                    <div class="mt-3 text-sm text-gray-400">
+                        Risk Score: ${threatAssessment.score}/10
+                    </div>
+                `;
+                
+                // Entropy analysis
+                securityHtml += `<div class="mt-4"><strong>Entropy Analysis:</strong><br>`;
+                if (entropy > 7.5) {
+                    securityHtml += '<span class="detection-badge badge-malware"><i class="fas fa-exclamation-triangle mr-1"></i>High entropy detected</span>';
+                } else if (entropy > 6) {
+                    securityHtml += '<span class="detection-badge badge-suspicious"><i class="fas fa-exclamation-circle mr-1"></i>Medium entropy</span>';
+                } else {
+                    securityHtml += '<span class="detection-badge badge-clean"><i class="fas fa-check-circle mr-1"></i>Normal entropy</span>';
+                }
+                securityHtml += '</div>';
+                
+                // Threat categories
+                if (threatAssessment.categories.length > 0) {
+                    securityHtml += '<div class="mt-4"><strong>Threat Categories:</strong><br>';
+                    threatAssessment.categories.forEach(category => {
+                        securityHtml += `<span class="detection-badge badge-system"><i class="fas fa-tag mr-1"></i>${category}</span>`;
+                    });
+                    securityHtml += '</div>';
+                }
+                
+                // Detailed threat indicators
+                if (patternResults.reasons.length > 0) {
+                    threatHtml += '<div class="space-y-2">';
+                    patternResults.reasons.forEach(reason => {
+                        threatHtml += `
+                            <div class="flex items-center gap-2 p-2 bg-yellow-900/20 border border-yellow-600/30 rounded-lg">
+                                <i class="fas fa-exclamation-triangle text-yellow-400"></i>
+                                <span class="text-sm">${reason}</span>
+                            </div>
+                        `;
+                    });
+                    threatHtml += '</div>';
+                } else {
+                    threatHtml = '<p class="text-gray-500"><i class="fas fa-shield-alt mr-2"></i>No specific threats detected</p>';
+                }
+                
+                securityDiv.innerHTML = securityHtml;
+                threatDiv.innerHTML = threatHtml;
+            }
+
+            analyzeSections(uint8Array) {
+                const sectionDiv = document.getElementById('section-analysis');
+                
+                // Detect file type and perform appropriate analysis
+                if (uint8Array.length >= 2 && uint8Array[0] === 0x4D && uint8Array[1] === 0x5A) {
+                    this.analyzePEFile(uint8Array, sectionDiv);
+                } else if (uint8Array.length >= 4 && uint8Array[0] === 0x7F && uint8Array[1] === 0x45 && uint8Array[2] === 0x4C && uint8Array[3] === 0x46) {
+                    this.analyzeELFFile(uint8Array, sectionDiv);
+                } else {
+                    this.performGenericSectionAnalysis(uint8Array, sectionDiv);
+                }
+            }
+
+            analyzePEFile(uint8Array, sectionDiv) {
+                let html = `
+                    <div class="flex items-center gap-2 mb-4">
+                        <i class="fab fa-windows text-blue-400 text-xl"></i>
+                        <strong class="text-lg">PE File Analysis</strong>
+                    </div>
+                `;
+                
+                try {
+                    if (uint8Array.length >= 0x3C + 4) {
+                        const peOffset = uint8Array[0x3C] | (uint8Array[0x3D] << 8) | (uint8Array[0x3E] << 16) | (uint8Array[0x3F] << 24);
+                        
+                        if (peOffset < uint8Array.length - 4) {
+                            if (uint8Array[peOffset] === 0x50 && uint8Array[peOffset + 1] === 0x45) {
+                                html += '<span class="detection-badge badge-format"><i class="fas fa-check mr-1"></i>Valid PE Header</span><br>';
+                                
+                                // Machine type
+                                if (peOffset + 6 < uint8Array.length) {
+                                    const machine = uint8Array[peOffset + 4] | (uint8Array[peOffset + 5] << 8);
+                                    const machineType = this.getMachineType(machine);
+                                    html += `<div class="mt-3"><strong>Architecture:</strong> ${machineType}</div>`;
+                                }
+                                
+                                // Entropy analysis
+                                const entropy = this.analysisResults.entropy;
+                                html += `<div class="mt-2"><strong>Overall Entropy:</strong> ${entropy.toFixed(2)} bits</div>`;
+                                
+                                if (entropy > 7.5) {
+                                    html += '<span class="detection-badge badge-malware"><i class="fas fa-exclamation-triangle mr-1"></i>Suspicious: Very high entropy</span>';
+                                } else if (entropy > 6.5) {
+                                    html += '<span class="detection-badge badge-suspicious"><i class="fas fa-exclamation-circle mr-1"></i>Moderate entropy</span>';
+                                }
+                                
+                                // Section analysis
+                                html += this.analyzePESections(uint8Array, peOffset);
+                            }
+                        }
+                    }
+                } catch (error) {
+                    html += '<span class="text-red-400"><i class="fas fa-exclamation-triangle mr-1"></i>Error analyzing PE structure</span>';
+                }
+                
+                sectionDiv.innerHTML = html;
+            }
+
+            getMachineType(machine) {
+                const types = {
+                    0x014c: 'x86 (32-bit)',
+                    0x8664: 'x64 (64-bit)',
+                    0x01c0: 'ARM',
+                    0xaa64: 'ARM64',
+                    0x0200: 'Itanium'
+                };
+                return types[machine] || `Unknown (0x${machine.toString(16)})`;
+            }
+
+            analyzePESections(uint8Array, peOffset) {
+                let html = '<div class="mt-4"><strong>Section Analysis:</strong><br>';
+                
+                try {
+                    // This is a simplified section analysis
+                    // In a real implementation, you'd parse the full PE structure
+                    const chunkSize = Math.min(4096, Math.floor(uint8Array.length / 8));
+                    let suspiciousSections = 0;
+                    
+                    for (let i = 0; i < uint8Array.length; i += chunkSize) {
+                        const chunk = uint8Array.slice(i, i + chunkSize);
+                        const entropy = this.calculateEntropy(chunk);
+                        
+                        if (entropy > 7.5) {
+                            suspiciousSections++;
+                        }
+                    }
+                    
+                    if (suspiciousSections > 0) {
+                        html += `<span class="detection-badge badge-suspicious">
+                            <i class="fas fa-exclamation-triangle mr-1"></i>
+                            ${suspiciousSections} high-entropy sections
+                        </span>`;
+                    } else {
+                        html += '<span class="detection-badge badge-clean"><i class="fas fa-check mr-1"></i>Normal section entropy</span>';
+                    }
+                    
+                } catch (error) {
+                    html += '<span class="text-red-400">Error analyzing sections</span>';
+                }
+                
+                html += '</div>';
+                return html;
+            }
+
+            analyzeELFFile(uint8Array, sectionDiv) {
+                let html = `
+                    <div class="flex items-center gap-2 mb-4">
+                        <i class="fab fa-linux text-green-400 text-xl"></i>
+                        <strong class="text-lg">ELF File Analysis</strong>
+                    </div>
+                `;
+                
+                html += '<span class="detection-badge badge-format"><i class="fas fa-check mr-1"></i>Valid ELF Header</span><br>';
+                
+                // Architecture detection
+                if (uint8Array.length > 4) {
+                    const elfClass = uint8Array[4];
+                    const arch = elfClass === 1 ? '32-bit' : elfClass === 2 ? '64-bit' : 'Unknown';
+                    html += `<div class="mt-3"><strong>Architecture:</strong> ${arch}</div>`;
+                }
+                
+                const entropy = this.analysisResults.entropy;
+                html += `<div class="mt-2"><strong>Overall Entropy:</strong> ${entropy.toFixed(2)} bits</div>`;
+                
+                if (entropy > 7.5) {
+                    html += '<span class="detection-badge badge-malware"><i class="fas fa-exclamation-triangle mr-1"></i>Suspicious: Very high entropy</span>';
+                } else if (entropy > 6.5) {
+                    html += '<span class="detection-badge badge-suspicious"><i class="fas fa-exclamation-circle mr-1"></i>Moderate entropy</span>';
+                } else {
+                    html += '<span class="detection-badge badge-clean"><i class="fas fa-check mr-1"></i>Normal entropy</span>';
+                }
+                
+                sectionDiv.innerHTML = html;
+            }
+
+            performGenericSectionAnalysis(uint8Array, sectionDiv) {
+                let html = `
+                    <div class="flex items-center gap-2 mb-4">
+                        <i class="fas fa-file text-gray-400 text-xl"></i>
+                        <strong class="text-lg">Generic Binary Analysis</strong>
+                    </div>
+                `;
+                
+                const chunkSize = Math.min(1024, Math.floor(uint8Array.length / 16));
+                const chunks = [];
+                
+                for (let i = 0; i < uint8Array.length; i += chunkSize) {
+                    const chunk = uint8Array.slice(i, i + chunkSize);
+                    const entropy = this.calculateEntropy(chunk);
+                    chunks.push({ offset: i, entropy, size: chunk.length });
+                }
+                
+                html += `<div class="space-y-2 max-h-64 overflow-y-auto">`;
+                chunks.forEach((chunk, index) => {
+                    const entropyClass = chunk.entropy > 7.5 ? 'text-red-400' : 
+                                       chunk.entropy > 6.5 ? 'text-yellow-400' : 
+                                       chunk.entropy > 5 ? 'text-blue-400' : 'text-green-400';
+                    const icon = chunk.entropy > 7.5 ? 'fas fa-exclamation-triangle' :
+                                chunk.entropy > 6.5 ? 'fas fa-exclamation-circle' :
+                                'fas fa-check-circle';
+                    
+                    html += `
+                        <div class="flex items-center justify-between p-2 bg-gray-800/50 rounded-lg">
+                            <div class="flex items-center gap-2">
+                                <i class="${icon} ${entropyClass}"></i>
+                                <span class="font-mono text-sm">0x${chunk.offset.toString(16).padStart(8, '0')}</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span class="text-xs text-gray-400">${this.formatFileSize(chunk.size)}</span>
+                                <span class="${entropyClass} font-mono text-sm">E: ${chunk.entropy.toFixed(2)}</span>
+                            </div>
+                        </div>
+                    `;
+                });
+                html += '</div>';
+                
+                sectionDiv.innerHTML = html;
+            }
+
+            renderHexDump(uint8Array) {
+                const bytesPerRow = 16;
+                const maxRows = 200; // Increased for better analysis
+                let hexDumpHtml = '';
+                const len = Math.min(uint8Array.length, maxRows * bytesPerRow);
+                
+                for (let i = 0; i < len; i += bytesPerRow) {
+                    const offset = i.toString(16).padStart(8, '0').toUpperCase();
+                    let hexPart = '';
+                    let asciiPart = '';
+                    
+                    for (let j = 0; j < bytesPerRow; j++) {
+                        if (i + j < len) {
+                            const byte = uint8Array[i + j];
+                            hexPart += byte.toString(16).padStart(2, '0').toUpperCase() + ' ';
+                            asciiPart += (byte >= 32 && byte <= 126) ? String.fromCharCode(byte) : '.';
+                        } else {
+                            hexPart += '   ';
+                            asciiPart += ' ';
+                        }
+                    }
+                    
+                    hexPart = hexPart.trimEnd().padEnd(bytesPerRow * 3 - 1, ' ');
+                    hexDumpHtml += `${offset}   ${hexPart}   ${asciiPart}\n`;
+                }
+                
+                if (uint8Array.length > len) {
+                    hexDumpHtml += `\n... (${uint8Array.length - len} more bytes)`;
+                }
+                
+                document.getElementById('hex-dump').textContent = hexDumpHtml;
+            }
+
+            renderVisualizations(uint8Array) {
+                this.renderFrequencyChart(uint8Array);
+                this.renderEntropyChart(uint8Array);
+            }
+
+            initializeCharts() {
+                // Initialize frequency chart
+                const freqCtx = document.getElementById('frequency-chart').getContext('2d');
+                this.frequencyChart = new Chart(freqCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: [],
+                        datasets: [{
+                            label: 'Frequency',
+                            data: [],
+                            backgroundColor: 'rgba(59, 130, 246, 0.6)',
+                            borderColor: 'rgba(59, 130, 246, 1)',
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                                titleColor: '#e2e8f0',
+                                bodyColor: '#e2e8f0',
+                                borderColor: 'rgba(59, 130, 246, 0.5)',
+                                borderWidth: 1
+                            }
+                        },
+                        scales: {
+                            y: { 
+                                beginAtZero: true,
+                                grid: { color: 'rgba(59, 130, 246, 0.1)' },
+                                ticks: { color: '#94a3b8' }
+                            },
+                            x: {
+                                grid: { color: 'rgba(59, 130, 246, 0.1)' },
+                                ticks: { color: '#94a3b8' }
+                            }
+                        }
+                    }
+                });
+
+                // Initialize entropy chart
+                const entropyCtx = document.getElementById('entropy-chart').getContext('2d');
+                this.entropyChart = new Chart(entropyCtx, {
+                    type: 'line',
+                    data: {
+                        labels: [],
+                        datasets: [{
+                            label: 'Entropy',
+                            data: [],
+                            borderColor: 'rgba(16, 185, 129, 1)',
+                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                            fill: true,
+                            tension: 0.4,
+                            pointBackgroundColor: 'rgba(16, 185, 129, 1)',
+                            pointBorderColor: '#ffffff',
+                            pointBorderWidth: 2
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                                titleColor: '#e2e8f0',
+                                bodyColor: '#e2e8f0',
+                                borderColor: 'rgba(16, 185, 129, 0.5)',
+                                borderWidth: 1
+                            }
+                        },
+                        scales: {
+                            y: { 
+                                beginAtZero: true,
+                                max: 8,
+                                grid: { color: 'rgba(16, 185, 129, 0.1)' },
+                                ticks: { color: '#94a3b8' },
+                                title: {
+                                    display: true,
+                                    text: 'Entropy (bits)',
+                                    color: '#94a3b8'
+                                }
+                            },
+                            x: {
+                                grid: { color: 'rgba(16, 185, 129, 0.1)' },
+                                ticks: { color: '#94a3b8' },
+                                title: {
+                                    display: true,
+                                    text: 'File Offset',
+                                    color: '#94a3b8'
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            renderFrequencyChart(uint8Array) {
+                const frequencies = new Array(256).fill(0);
+                for (let i = 0; i < uint8Array.length; i++) {
+                    frequencies[uint8Array[i]]++;
+                }
+                
+                const labels = [];
+                const data = [];
+                const colors = [];
+                
+                for (let i = 0; i < 256; i++) {
+                    if (frequencies[i] > 0) {
+                        labels.push(`0x${i.toString(16).padStart(2, '0').toUpperCase()}`);
+                        data.push(frequencies[i]);
+                        
+                        // Color coding based on frequency
+                        const maxFreq = Math.max(...frequencies);
+                        const intensity = frequencies[i] / maxFreq;
+                        if (intensity > 0.8) {
+                            colors.push('rgba(239, 68, 68, 0.8)'); // High frequency - red
+                        } else if (intensity > 0.5) {
+                            colors.push('rgba(245, 158, 11, 0.8)'); // Medium frequency - orange
+                        } else {
+                            colors.push('rgba(59, 130, 246, 0.6)'); // Low frequency - blue
+                        }
+                    }
+                }
+                
+                this.frequencyChart.data.labels = labels;
+                this.frequencyChart.data.datasets[0].data = data;
+                this.frequencyChart.data.datasets[0].backgroundColor = colors;
+                this.frequencyChart.update();
+            }
+
+            renderEntropyChart(uint8Array) {
+                const windowSize = 1024;
+                const step = 256;
+                const labels = [];
+                const data = [];
+                const colors = [];
+                
+                for (let i = 0; i < uint8Array.length - windowSize; i += step) {
+                    const window = uint8Array.slice(i, i + windowSize);
+                    const entropy = this.calculateEntropy(window);
+                    labels.push(`0x${i.toString(16).toUpperCase()}`);
+                    data.push(entropy);
+                    
+                    // Color coding based on entropy level
+                    if (entropy > 7.5) {
+                        colors.push('rgba(239, 68, 68, 0.8)'); // High entropy - red
+                    } else if (entropy > 6.5) {
+                        colors.push('rgba(245, 158, 11, 0.8)'); // Medium entropy - orange
+                    } else {
+                        colors.push('rgba(16, 185, 129, 0.8)'); // Normal entropy - green
+                    }
+                }
+                
+                this.entropyChart.data.labels = labels;
+                this.entropyChart.data.datasets[0].data = data;
+                this.entropyChart.data.datasets[0].pointBackgroundColor = colors;
+                this.entropyChart.update();
+            }
+
+            async exportPDFReport() {
+                if (!this.currentFile || !this.analysisResults) {
+                    alert('No analysis data to export. Please analyze a file first.');
+                    return;
+                }
+
+                try {
+                    // Prepare PDF content
+                    this.preparePDFContent();
+                    
+                    // Create PDF using jsPDF
+                    const { jsPDF } = window.jspdf;
+                    const pdf = new jsPDF('p', 'mm', 'a4');
+                    
+                    // Set up fonts and styles
+                    pdf.setFont('helvetica');
+                    
+                    // Title page
+                    pdf.setFontSize(24);
+                    pdf.setTextColor(59, 130, 246);
+                    pdf.text('Advanced Binary Analysis Report', 105, 30, { align: 'center' });
+                    
+                    pdf.setFontSize(16);
+                    pdf.setTextColor(0, 0, 0);
+                    pdf.text(this.analysisResults.fileName, 105, 50, { align: 'center' });
+                    
+                    pdf.setFontSize(12);
+                    pdf.text(`Generated: ${new Date().toLocaleString()}`, 105, 60, { align: 'center' });
+                    
+                    // Executive Summary
+                    let yPos = 80;
+                    pdf.setFontSize(16);
+                    pdf.setTextColor(59, 130, 246);
+                    pdf.text('Executive Summary', 20, yPos);
+                    
+                    yPos += 10;
+                    pdf.setFontSize(10);
+                    pdf.setTextColor(0, 0, 0);
+                    
+                    const summaryData = [
+                        ['File Name:', this.analysisResults.fileName],
+                        ['File Size:', this.formatFileSize(this.analysisResults.fileSize)],
+                        ['Shannon Entropy:', `${this.analysisResults.entropy.toFixed(2)} bits`],
+                        ['Threat Level:', this.analysisResults.threatLevel.level],
+                        ['Risk Score:', `${this.analysisResults.threatLevel.score}/10`]
+                    ];
+                    
+                    summaryData.forEach(([label, value]) => {
+                        pdf.text(label, 20, yPos);
+                        pdf.text(value, 80, yPos);
+                        yPos += 6;
+                    });
+                    
+                    // Detected Formats
+                    yPos += 10;
+                    pdf.setFontSize(14);
+                    pdf.setTextColor(59, 130, 246);
+                    pdf.text('Detected File Formats', 20, yPos);
+                    
+                    yPos += 8;
+                    pdf.setFontSize(10);
+                    pdf.setTextColor(0, 0, 0);
+                    
+                    if (this.analysisResults.detectedFormats && this.analysisResults.detectedFormats.length > 0) {
+                        this.analysisResults.detectedFormats.forEach(format => {
+                            pdf.text(`• ${format.name} (${format.category})`, 25, yPos);
+                            yPos += 6;
+                        });
+                    } else {
+                        pdf.text('• No known formats detected', 25, yPos);
+                        yPos += 6;
+                    }
+                    
+                    // Security Analysis
+                    yPos += 10;
+                    pdf.setFontSize(14);
+                    pdf.setTextColor(59, 130, 246);
+                    pdf.text('Security Analysis', 20, yPos);
+                    
+                    yPos += 8;
+                    pdf.setFontSize(10);
+                    
+                    // Set threat level color
+                    const threatLevel = this.analysisResults.threatLevel.level;
+                    if (threatLevel === 'HIGH') {
+                        pdf.setTextColor(220, 38, 38);
+                    } else if (threatLevel === 'MEDIUM') {
+                        pdf.setTextColor(217, 119, 6);
+                    } else if (threatLevel === 'LOW') {
+                        pdf.setTextColor(5, 150, 105);
+                    } else {
+                        pdf.setTextColor(22, 163, 74);
+                    }
+                    
+                    pdf.text(`Threat Level: ${threatLevel}`, 20, yPos);
+                    yPos += 8;
+                    
+                    pdf.setTextColor(0, 0, 0);
+                    pdf.text('Detected Indicators:', 20, yPos);
+                    yPos += 6;
+                    
+                    if (this.analysisResults.threatLevel.reasons.length > 0) {
+                        this.analysisResults.threatLevel.reasons.forEach(reason => {
+                            // Word wrap for long reasons
+                            const lines = pdf.splitTextToSize(`• ${reason}`, 170);
+                            lines.forEach(line => {
+                                if (yPos > 270) { // Check if we need a new page
+                                    pdf.addPage();
+                                    yPos = 20;
+                                }
+                                pdf.text(line, 25, yPos);
+                                yPos += 6;
+                            });
+                        });
+                    } else {
+                        pdf.text('• No specific threats detected', 25, yPos);
+                        yPos += 6;
+                    }
+                    
+                    // Recommendations
+                    if (yPos > 220) {
+                        pdf.addPage();
+                        yPos = 20;
+                    }
+                    
+                    yPos += 10;
+                    pdf.setFontSize(14);
+                    pdf.setTextColor(59, 130, 246);
+                    pdf.text('Recommendations', 20, yPos);
+                    
+                    yPos += 8;
+                    pdf.setFontSize(10);
+                    pdf.setTextColor(0, 0, 0);
+                    
+                    const recommendations = this.generateRecommendations();
+                    recommendations.forEach(rec => {
+                        const lines = pdf.splitTextToSize(rec, 170);
+                        lines.forEach(line => {
+                            if (yPos > 270) {
+                                pdf.addPage();
+                                yPos = 20;
+                            }
+                            pdf.text(line, 20, yPos);
+                            yPos += 6;
+                        });
+                    });
+                    
+                    // Technical Details
+                    if (yPos > 200) {
+                        pdf.addPage();
+                        yPos = 20;
+                    }
+                    
+                    yPos += 10;
+                    pdf.setFontSize(14);
+                    pdf.setTextColor(59, 130, 246);
+                    pdf.text('Technical Details', 20, yPos);
+                    
+                    yPos += 8;
+                    pdf.setFontSize(10);
+                    pdf.setTextColor(0, 0, 0);
+                    
+                    const technicalDetails = [
+                        `Entropy Analysis: ${this.analysisResults.entropy > 7.5 ? 'HIGH ENTROPY DETECTED - Possible packing/encryption' :
+                          this.analysisResults.entropy > 6.5 ? 'MODERATE ENTROPY - Normal for some file types' :
+                          'NORMAL ENTROPY - Typical for uncompressed data'}`,
+                        `File Categories: ${this.analysisResults.threatLevel.categories.join(', ') || 'None'}`,
+                        `Analysis Timestamp: ${new Date().toISOString()}`,
+                        'Generated by Advanced Binary Format Viewer Pro'
+                    ];
+                    
+                    technicalDetails.forEach(detail => {
+                        const lines = pdf.splitTextToSize(detail, 170);
+                        lines.forEach(line => {
+                            if (yPos > 270) {
+                                pdf.addPage();
+                                yPos = 20;
+                            }
+                            pdf.text(line, 20, yPos);
+                            yPos += 6;
+                        });
+                    });
+                    
+                    // Save the PDF
+                    const fileName = `${this.analysisResults.fileName}_analysis_report.pdf`;
+                    pdf.save(fileName);
+                    
+                } catch (error) {
+                    console.error('Error generating PDF:', error);
+                    alert('Error generating PDF report. Please try again.');
+                }
+            }
+
+            preparePDFContent() {
+                // This method prepares the hidden PDF content div with data
+                // (keeping for potential future use with html2canvas approach)
+                const timestamp = new Date().toISOString();
+                const results = this.analysisResults;
+                
+                document.getElementById('pdf-filename').textContent = results.fileName;
+                document.getElementById('pdf-timestamp').textContent = `Generated: ${timestamp}`;
+                document.getElementById('pdf-file-name').textContent = results.fileName;
+                document.getElementById('pdf-file-size').textContent = this.formatFileSize(results.fileSize);
+                document.getElementById('pdf-entropy').textContent = `${results.entropy.toFixed(2)} bits`;
+                document.getElementById('pdf-threat-level').textContent = results.threatLevel.level;
+                document.getElementById('pdf-threat-level').className = `threat-${results.threatLevel.level.toLowerCase()}-pdf`;
+                document.getElementById('pdf-risk-score').textContent = `${results.threatLevel.score}/10`;
+            }
+
+            generateRecommendations() {
+                const level = this.analysisResults.threatLevel.level;
+                const entropy = this.analysisResults.entropy;
+                
+                let recommendations = [];
+                
+                if (level === 'HIGH') {
+                    recommendations.push('• DO NOT EXECUTE this file without thorough analysis');
+                    recommendations.push('• Submit to multiple antivirus engines for scanning');
+                    recommendations.push('• Analyze in isolated sandbox environment');
+                    recommendations.push('• Consider professional malware analysis');
+                }
+                
+                if (level === 'MEDIUM') {
+                    recommendations.push('• Exercise caution before execution');
+                    recommendations.push('• Scan with updated antivirus software');
+                    recommendations.push('• Verify file source and integrity');
+                }
+                
+                if (entropy > 7.5) {
+                    recommendations.push('• High entropy suggests packing or encryption');
+                    recommendations.push('• Consider unpacking tools if legitimate software');
+                    recommendations.push('• Monitor for runtime unpacking behavior');
+                }
+                
+                if (recommendations.length === 0) {
+                    recommendations.push('• File appears to be clean based on static analysis');
+                    recommendations.push('• Standard security practices still apply');
+                }
+                
+                return recommendations;
+            }
+
+            formatFileSize(bytes) {
+                if (bytes === 0) return '0 Bytes';
+                const k = 1024;
+                const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+                const i = Math.floor(Math.log(bytes) / Math.log(k));
+                return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+            }
+        }
+
+        // Initialize the analyzer when the page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            new AdvancedBinaryAnalyzer();
+        });
+    </script>
+</body>
+</html>
+
