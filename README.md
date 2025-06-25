@@ -1,15 +1,15 @@
-# Advanced Binary Format Viewer Pro
+# Simple Binary Format Viewer 
 
-A sophisticated client-side binary analysis tool with advanced malware detection capabilities.
+A client-side binary analysis tool with basic malware detection capabilities.
 
 ## Features
 
-### 🔍 **Comprehensive Binary Detection**
+### 🔍 **Binary Detection**
 - **50+ file format signatures** including executables, archives, images, documents, media files, databases, and system files
 - **Magic byte detection** with offset support for complex formats
 - **Risk assessment** for different file types
 
-### 🛡️ **Advanced Malware Detection**
+### 🛡️ **Simple Malware Detection**
 - **Multi-layered threat analysis** using entropy, pattern matching, and behavioral indicators
 - **40+ malware patterns** including command execution, process injection, persistence mechanisms
 - **Threat categorization** (execution, injection, persistence, network, malware, evasion)
@@ -40,14 +40,6 @@ A sophisticated client-side binary analysis tool with advanced malware detection
 2. Drag and drop a binary file or use the "Browse Files" button
 3. View comprehensive analysis across multiple tabs
 4. Export detailed PDF reports using the floating action button
-
-## GitHub Pages Deployment
-
-1. Create a new repository on GitHub
-2. Upload the `advanced-binary-viewer-pro-pdf.html` file
-3. Rename it to `index.html` for GitHub Pages
-4. Enable GitHub Pages in repository settings
-5. Access your deployed analyzer at `https://yourusername.github.io/repository-name`
 
 ## Technical Details
 
